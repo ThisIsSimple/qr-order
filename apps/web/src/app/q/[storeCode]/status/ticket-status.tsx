@@ -243,11 +243,16 @@ function StatusPanel({ entry }: { entry: EntryStatus }) {
 
   if (entry.status === "seated") {
     return (
-      <Card>
-        <CardContent className="py-8 text-center">
+      <Card className="bg-emerald-50/60 ring-emerald-200">
+        <CardHeader>
+          <CardTitle className="text-center text-xl text-emerald-700">
+            착석 완료 ✓
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-center">
           <Ticket no={entry.ticket_no} muted />
           <p className="mt-3 text-sm text-muted-foreground">
-            착석이 완료되었습니다. 이용해 주셔서 감사합니다.
+            이용해 주셔서 감사합니다.
           </p>
         </CardContent>
       </Card>
@@ -257,7 +262,7 @@ function StatusPanel({ entry }: { entry: EntryStatus }) {
   if (entry.status === "canceled" || entry.status === "no_show") {
     const label = entry.status === "canceled" ? "취소됨" : "노쇼 처리됨";
     return (
-      <Card>
+      <Card className="bg-muted/40 ring-border">
         <CardContent className="py-8 text-center">
           <Ticket no={entry.ticket_no} muted />
           <p className="mt-3 text-sm text-muted-foreground">

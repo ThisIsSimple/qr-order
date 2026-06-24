@@ -147,9 +147,9 @@ export function QueueBoard({
       )}
 
       <div className="grid grid-cols-3 gap-3">
-        <Stat label="대기" value={waiting.length} />
-        <Stat label="호출됨" value={called.length} />
-        <Stat label="완료" value={done.length} />
+        <Stat label="대기" value={waiting.length} tone="default" />
+        <Stat label="호출됨" value={called.length} tone="primary" />
+        <Stat label="완료" value={done.length} tone="muted" />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -238,11 +238,28 @@ function Chip({
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: number;
+  tone?: "default" | "primary" | "muted";
+}) {
+  const active = tone === "primary" && value > 0;
   return (
-    <Card>
+    <Card className={active ? "bg-primary/5 ring-primary/40" : undefined}>
       <CardContent className="py-4 text-center">
-        <p className="text-2xl font-bold tabular-nums">{value}</p>
+        <p
+          className={cn(
+            "text-2xl font-bold tabular-nums",
+            tone === "primary" && "text-primary",
+            tone === "muted" && "text-muted-foreground",
+          )}
+        >
+          {value}
+        </p>
         <p className="text-xs text-muted-foreground">{label}</p>
       </CardContent>
     </Card>
@@ -281,11 +298,28 @@ function EntryCard({
   highlight?: boolean;
   children: React.ReactNode;
 }) {
+  const waited = waitedMinutes(entry.created_at);
+  const waitTone =
+    waited >= 20
+      ? "text-red-600 font-medium"
+      : waited >= 10
+        ? "text-amber-600"
+        : "text-muted-foreground";
+
   return (
-    <Card className={highlight ? "border-primary" : undefined}>
+    <Card
+      className={
+        highlight ? "bg-primary/5 ring-primary/40" : undefined
+      }
+    >
       <CardContent className="flex items-center justify-between gap-3 py-3">
         <div className="flex items-center gap-3">
-          <span className="text-2xl font-bold tabular-nums">
+          <span
+            className={cn(
+              "text-2xl font-bold tabular-nums",
+              highlight && "text-primary",
+            )}
+          >
             {formatTicketNo(entry.ticket_no)}
           </span>
           <div className="text-sm">
@@ -302,7 +336,7 @@ function EntryCard({
             </p>
             <p className="text-xs text-muted-foreground">
               {entry.phone ? `${maskPhone(entry.phone)} · ` : ""}
-              {waitedMinutes(entry.created_at)}분 대기
+              <span className={waitTone}>{waited}분 대기</span>
             </p>
           </div>
         </div>
@@ -332,15 +366,15 @@ const STATUS_LABEL: Record<string, string> = {
   no_show: "노쇼",
 };
 
+const STATUS_TONE: Record<string, string> = {
+  seated: "border-transparent bg-emerald-100 text-emerald-700",
+  canceled: "border-transparent bg-muted text-muted-foreground",
+  no_show: "border-transparent bg-red-100 text-red-700",
+};
+
 function StatusBadge({ status }: { status: string }) {
-  const variant =
-    status === "seated"
-      ? "secondary"
-      : status === "no_show" || status === "canceled"
-        ? "outline"
-        : "default";
   return (
-    <Badge variant={variant as "secondary" | "outline" | "default"}>
+    <Badge variant="secondary" className={STATUS_TONE[status]}>
       {STATUS_LABEL[status] ?? status}
     </Badge>
   );
