@@ -2,6 +2,31 @@
 
 QR 대기열 모노레포를 **Vercel(웹 2개) + Supabase Cloud(백엔드)** 로 배포하는 절차입니다.
 
+## ✅ 현재 배포 상태 (라이브)
+
+| 앱 | Vercel 프로젝트 | URL |
+|---|---|---|
+| 홈페이지(web) | `qr-order-web` (root: `apps/web`) | **https://qr-order-web-seven.vercel.app** |
+| 관리자(admin) | `qr-order-admin` (root: `apps/admin`) | **https://qr-order-admin-iota.vercel.app** |
+
+- Vercel 팀: `yunmin-jeons-projects` · 두 프로젝트 모두 **GitHub(`ThisIsSimple/qr-order`)에 연결됨**
+- **`git push origin main` 시 두 앱 자동 재배포**됩니다. (수동: 아래 "수동 배포" 참고)
+- 손님 등록: https://qr-order-web-seven.vercel.app/q/DEMO01 · 관리자 로그인: `owner@demo.test` / `demo1234!`
+
+> 남은 수동 단계(선택): Supabase 대시보드 → Authentication → URL Configuration 에 위 두 URL을 Site URL/Redirect URL로 추가하면 **회원가입 이메일 인증 링크**가 배포 주소로 갑니다. (비밀번호 로그인은 이 설정 없이도 동작)
+
+### 수동 배포 (CLI)
+
+모노레포라 **반드시 레포 루트에서** 배포해야 워크스페이스 의존성이 설치됩니다. 프로젝트별 Root Directory는 Vercel에 이미 설정돼 있습니다.
+
+```bash
+npx vercel link --yes --project qr-order-web   && npx vercel deploy --prod --yes   # web
+npx vercel link --yes --project qr-order-admin && npx vercel deploy --prod --yes   # admin
+```
+
+---
+
+
 ```
 손님 폰 ─┐
          ├─► web   (apps/web)   → Vercel 프로젝트 #1  ┐
