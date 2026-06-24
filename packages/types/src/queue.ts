@@ -42,6 +42,14 @@ export const queueActionSchema = z.object({
 });
 export type QueueAction = z.infer<typeof queueActionSchema>;
 
+/**
+ * 표시용 대기번호. 내부 ticket_no는 일자별 단조 증가(정렬·순번 계산에 사용)지만,
+ * 손님/관리자에게 보일 때는 1~999로 순환시킨다 (1000번째 → 다시 1).
+ */
+export function formatTicketNo(ticketNo: number): number {
+  return ((ticketNo - 1) % 999) + 1;
+}
+
 /** 상태 전환 시 기록할 타임스탬프 컬럼 매핑 */
 export const ACTION_TO_STATUS: Record<
   QueueAction["action"],

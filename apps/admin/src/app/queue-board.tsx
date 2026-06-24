@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { formatTicketNo } from "@qr/types";
 import type { QueueEntryRow } from "@qr/db";
 import { Badge } from "@qr/ui/components/badge";
 import { Button } from "@qr/ui/components/button";
@@ -163,7 +164,9 @@ export function QueueBoard({
                 key={e.id}
                 className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground"
               >
-                <span className="font-semibold tabular-nums">{e.ticket_no}</span>
+                <span className="font-semibold tabular-nums">
+                  {formatTicketNo(e.ticket_no)}
+                </span>
                 {e.customer_name}
                 <StatusBadge status={e.status} />
               </span>
@@ -221,7 +224,7 @@ function EntryCard({
       <CardContent className="flex items-center justify-between gap-3 py-3">
         <div className="flex items-center gap-3">
           <span className="text-2xl font-bold tabular-nums">
-            {entry.ticket_no}
+            {formatTicketNo(entry.ticket_no)}
           </span>
           <div className="text-sm">
             <p className="font-medium">
@@ -231,7 +234,7 @@ function EntryCard({
               </span>
             </p>
             <p className="text-xs text-muted-foreground">
-              {entry.phone ? maskPhone(entry.phone) : "연락처 없음"} ·{" "}
+              {entry.phone ? `${maskPhone(entry.phone)} · ` : ""}
               {waitedMinutes(entry.created_at)}분 대기
             </p>
           </div>

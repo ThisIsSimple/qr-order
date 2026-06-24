@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Button } from "@qr/ui/components/button";
+import { getServerSupabase } from "@/lib/supabase/server";
 import { TicketStatus } from "./ticket-status";
 
 export default async function StatusPage({
@@ -23,9 +24,20 @@ export default async function StatusPage({
     );
   }
 
+  const supabase = await getServerSupabase();
+  const { data: store } = await supabase
+    .from("stores")
+    .select("name, store_code, address")
+    .eq("store_code", storeCode.toUpperCase())
+    .maybeSingle();
+
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10">
-      <TicketStatus token={token} storeCode={storeCode} />
+      <TicketStatus
+        token={token}
+        storeCode={storeCode}
+        store={store ?? null}
+      />
     </main>
   );
 }

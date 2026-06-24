@@ -62,9 +62,7 @@ export default async function DashboardPage() {
       <div className="mx-auto max-w-5xl px-4 py-6">
         <div className="mb-6">
           <h1 className="text-xl font-bold">{store.name}</h1>
-          <p className="text-xs text-muted-foreground">
-            대기열 관리 · 코드 {store.store_code}
-          </p>
+          <p className="text-xs text-muted-foreground">코드 {store.store_code}</p>
         </div>
 
         <QueueBoard

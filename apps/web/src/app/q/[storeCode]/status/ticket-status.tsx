@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { Store } from "lucide-react";
+import { formatTicketNo } from "@qr/types";
 import { Button } from "@qr/ui/components/button";
 import {
   Card,
@@ -9,6 +11,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@qr/ui/components/card";
+import {
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemMedia,
+  ItemTitle,
+} from "@qr/ui/components/item";
 import { getBrowserSupabase } from "@/lib/supabase/client";
 
 type EntryStatus = {
@@ -20,14 +29,22 @@ type EntryStatus = {
   waiting_ahead: number;
 };
 
+type StoreInfo = {
+  name: string;
+  store_code: string;
+  address: string | null;
+};
+
 const POLL_MS = 5000;
 
 export function TicketStatus({
   token,
   storeCode,
+  store,
 }: {
   token: string;
   storeCode: string;
+  store: StoreInfo | null;
 }) {
   const [entry, setEntry] = useState<EntryStatus | null>(null);
   const [state, setState] = useState<"loading" | "ok" | "missing">("loading");
@@ -37,7 +54,7 @@ export function TicketStatus({
     const { data, error } = await supabase.rpc("get_entry_status", {
       p_access_token: token,
     });
-    if (error) return; // 일시적 오류는 다음 폴링에서 복구
+    if (error) return;
     const row = data?.[0];
     if (!row) {
       setState("missing");
@@ -74,20 +91,28 @@ export function TicketStatus({
     );
   }
 
+  const storeName = store?.name ?? entry.store_name;
+
   return (
     <div className="space-y-5">
-      <div className="text-center">
-        <p className="text-sm text-muted-foreground">{entry.store_name}</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {entry.party_size}명 대기
-        </p>
-      </div>
+      {/* 지금 웨이팅 중인 매장 정보 */}
+      <Item variant="outline" size="default">
+        <ItemMedia variant="icon">
+          <Store className="text-primary" />
+        </ItemMedia>
+        <ItemContent>
+          <ItemTitle className="text-lg">{storeName}</ItemTitle>
+          <ItemDescription>
+            {store?.address ?? "QR 대기 등록"} · {entry.party_size}명 대기
+          </ItemDescription>
+        </ItemContent>
+      </Item>
 
       <StatusPanel entry={entry} />
 
       <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
         <span className="inline-block size-1.5 animate-pulse rounded-full bg-primary" />
-        실시간 업데이트 중 · {POLL_MS / 1000}초마다 새로고침
+        실시간 업데이트 중
       </div>
     </div>
   );
@@ -171,7 +196,7 @@ function Ticket({ no, muted }: { no: number; muted?: boolean }) {
           muted ? "text-muted-foreground" : "text-foreground"
         }`}
       >
-        {no}
+        {formatTicketNo(no)}
       </p>
     </div>
   );
