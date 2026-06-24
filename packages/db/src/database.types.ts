@@ -158,6 +158,7 @@ export type Database = {
           max_party: number | null
           min_party: number | null
           name: string
+          phone_required: boolean
           sort_order: number
           store_id: string
         }
@@ -169,6 +170,7 @@ export type Database = {
           max_party?: number | null
           min_party?: number | null
           name: string
+          phone_required?: boolean
           sort_order?: number
           store_id: string
         }
@@ -180,6 +182,7 @@ export type Database = {
           max_party?: number | null
           min_party?: number | null
           name?: string
+          phone_required?: boolean
           sort_order?: number
           store_id?: string
         }

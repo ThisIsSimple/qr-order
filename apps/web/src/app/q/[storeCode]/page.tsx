@@ -21,7 +21,7 @@ export default async function StoreQueuePage({
 
   const { data: queues } = await supabase
     .from("queues")
-    .select("id, name, description, min_party, max_party")
+    .select("id, name, description, min_party, max_party, phone_required")
     .eq("store_id", store.id)
     .eq("is_active", true)
     .order("sort_order", { ascending: true });

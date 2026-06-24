@@ -135,6 +135,9 @@ export function QueueManager({
               })
             }
             onToggle={() => patch(q.id, { is_active: !q.is_active })}
+            onTogglePhone={() =>
+              patch(q.id, { phone_required: !q.phone_required })
+            }
             onMove={(dir) => move(i, dir)}
             onDelete={() => remove(q.id)}
           />
@@ -190,6 +193,7 @@ function QueueCard({
   busy,
   onSave,
   onToggle,
+  onTogglePhone,
   onMove,
   onDelete,
 }: {
@@ -199,6 +203,7 @@ function QueueCard({
   busy: boolean;
   onSave: (name: string, min: number | null, max: number | null) => void;
   onToggle: () => void;
+  onTogglePhone: () => void;
   onMove: (dir: -1 | 1) => void;
   onDelete: () => void;
 }) {
@@ -263,6 +268,19 @@ function QueueCard({
               <span className="text-xs text-muted-foreground">인</span>
             </div>
           </div>
+        </div>
+
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">손님 휴대폰 번호</span>
+          <Button
+            type="button"
+            variant={queue.phone_required ? "default" : "outline"}
+            size="sm"
+            disabled={busy}
+            onClick={onTogglePhone}
+          >
+            {queue.phone_required ? "필수" : "선택"}
+          </Button>
         </div>
 
         <div className="flex items-center justify-between">
