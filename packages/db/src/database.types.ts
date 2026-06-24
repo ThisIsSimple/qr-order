@@ -51,19 +51,29 @@ export type Database = {
         Row: {
           day: string
           last_no: number
+          queue_id: string
           store_id: string
         }
         Insert: {
           day: string
           last_no?: number
+          queue_id: string
           store_id: string
         }
         Update: {
           day?: string
           last_no?: number
+          queue_id?: string
           store_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "queue_counters_queue_id_fkey"
+            columns: ["queue_id"]
+            isOneToOne: false
+            referencedRelation: "queues"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "queue_counters_store_id_fkey"
             columns: ["store_id"]
@@ -83,6 +93,7 @@ export type Database = {
           id: string
           party_size: number
           phone: string | null
+          queue_id: string
           seated_at: string | null
           sort_at: string
           status: string
@@ -98,6 +109,7 @@ export type Database = {
           id?: string
           party_size: number
           phone?: string | null
+          queue_id: string
           seated_at?: string | null
           sort_at?: string
           status?: string
@@ -113,6 +125,7 @@ export type Database = {
           id?: string
           party_size?: number
           phone?: string | null
+          queue_id?: string
           seated_at?: string | null
           sort_at?: string
           status?: string
@@ -121,7 +134,58 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "queue_entries_queue_id_fkey"
+            columns: ["queue_id"]
+            isOneToOne: false
+            referencedRelation: "queues"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "queue_entries_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      queues: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          max_party: number | null
+          min_party: number | null
+          name: string
+          sort_order: number
+          store_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          max_party?: number | null
+          min_party?: number | null
+          name: string
+          sort_order?: number
+          store_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          max_party?: number | null
+          min_party?: number | null
+          name?: string
+          sort_order?: number
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "queues_store_id_fkey"
             columns: ["store_id"]
             isOneToOne: false
             referencedRelation: "stores"
@@ -218,7 +282,7 @@ export type Database = {
           p_customer_name: string
           p_party_size: number
           p_phone: string
-          p_store_code: string
+          p_queue_id: string
         }
         Returns: {
           access_token: string
@@ -234,6 +298,7 @@ export type Database = {
           defer_count: number
           entry_id: string
           party_size: number
+          queue_name: string
           status: string
           store_name: string
           ticket_no: number

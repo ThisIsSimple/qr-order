@@ -4,14 +4,38 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { enqueueInputSchema } from "@qr/types";
+import { cn } from "@qr/ui/lib/utils";
 import { Button } from "@qr/ui/components/button";
 import { Input } from "@qr/ui/components/input";
 import { Label } from "@qr/ui/components/label";
-import { enqueueInputSchema } from "@qr/types";
 import { getBrowserSupabase } from "@/lib/supabase/client";
 
-export function EnqueueForm({ storeCode }: { storeCode: string }) {
+type QueueOption = {
+  id: string;
+  name: string;
+  description: string | null;
+  min_party: number | null;
+  max_party: number | null;
+};
+
+function capacityLabel(q: QueueOption): string | null {
+  if (q.min_party && q.max_party) return `${q.min_party}~${q.max_party}인`;
+  if (q.max_party) return `~${q.max_party}인`;
+  if (q.min_party) return `${q.min_party}인 이상`;
+  return null;
+}
+
+export function EnqueueForm({
+  storeCode,
+  queues,
+}: {
+  storeCode: string;
+  queues: QueueOption[];
+}) {
   const router = useRouter();
+  const single = queues.length === 1;
+  const [queueId, setQueueId] = useState(single ? queues[0]!.id : "");
   const [partySize, setPartySize] = useState(2);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -21,7 +45,7 @@ export function EnqueueForm({ storeCode }: { storeCode: string }) {
     e.preventDefault();
 
     const parsed = enqueueInputSchema.safeParse({
-      storeCode,
+      queueId,
       partySize,
       customerName: name,
       phone,
@@ -34,7 +58,7 @@ export function EnqueueForm({ storeCode }: { storeCode: string }) {
     setSubmitting(true);
     const supabase = getBrowserSupabase();
     const { data, error } = await supabase.rpc("enqueue_party", {
-      p_store_code: storeCode,
+      p_queue_id: parsed.data.queueId,
       p_party_size: parsed.data.partySize,
       p_customer_name: parsed.data.customerName,
       p_phone: parsed.data.phone ?? "",
@@ -51,6 +75,49 @@ export function EnqueueForm({ storeCode }: { storeCode: string }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {single ? (
+        <p className="text-center text-sm text-muted-foreground">
+          {queues[0]!.name}
+        </p>
+      ) : (
+        <div className="space-y-2">
+          <Label>대기열 선택</Label>
+          <div className="grid gap-2">
+            {queues.map((q) => {
+              const cap = capacityLabel(q);
+              const selected = queueId === q.id;
+              return (
+                <button
+                  type="button"
+                  key={q.id}
+                  onClick={() => setQueueId(q.id)}
+                  className={cn(
+                    "rounded-lg border p-3 text-left transition-colors",
+                    selected
+                      ? "border-primary ring-2 ring-primary/30"
+                      : "border-border hover:bg-muted",
+                  )}
+                >
+                  <p className="font-medium">
+                    {q.name}
+                    {cap && (
+                      <span className="ml-1 text-sm font-normal text-muted-foreground">
+                        · {cap}
+                      </span>
+                    )}
+                  </p>
+                  {q.description && (
+                    <p className="text-xs text-muted-foreground">
+                      {q.description}
+                    </p>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="space-y-2">
         <Label>인원</Label>
         <div className="flex items-center justify-between rounded-lg border border-border p-2">

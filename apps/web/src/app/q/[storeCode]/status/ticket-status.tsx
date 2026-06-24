@@ -35,6 +35,7 @@ import { getBrowserSupabase } from "@/lib/supabase/client";
 type EntryStatus = {
   entry_id: string;
   store_name: string;
+  queue_name: string;
   ticket_no: number;
   party_size: number;
   status: string;
@@ -157,7 +158,7 @@ export function TicketStatus({
         <ItemContent>
           <ItemTitle className="text-lg">{storeName}</ItemTitle>
           <ItemDescription>
-            {store?.address ?? "QR 대기 등록"} · {entry.party_size}명 대기
+            {entry.queue_name} · {entry.party_size}명 대기
           </ItemDescription>
         </ItemContent>
       </Item>

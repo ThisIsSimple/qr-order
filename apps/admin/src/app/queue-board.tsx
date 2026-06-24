@@ -7,21 +7,37 @@ import type { QueueEntryRow } from "@qr/db";
 import { Badge } from "@qr/ui/components/badge";
 import { Button } from "@qr/ui/components/button";
 import { Card, CardContent } from "@qr/ui/components/card";
+import { cn } from "@qr/ui/lib/utils";
 import { getBrowserSupabase } from "@/lib/supabase/client";
 
 const REFETCH_MS = 10000;
+
+type QueueMeta = { id: string; name: string; sort_order: number };
 
 export function QueueBoard({
   storeId,
   dayStart,
   initialEntries,
+  queues,
 }: {
   storeId: string;
   dayStart: string;
   initialEntries: QueueEntryRow[];
+  queues: QueueMeta[];
 }) {
   const [entries, setEntries] = useState<QueueEntryRow[]>(initialEntries);
   const [busy, setBusy] = useState<string | null>(null);
+  const [filter, setFilter] = useState<string>("all");
+
+  const queueName = useMemo(
+    () => new Map(queues.map((q) => [q.id, q.name])),
+    [queues],
+  );
+  const queueOrder = useMemo(
+    () => new Map(queues.map((q) => [q.id, q.sort_order])),
+    [queues],
+  );
+  const multi = queues.length > 1;
 
   const refetch = useCallback(async () => {
     const supabase = getBrowserSupabase();
@@ -35,7 +51,6 @@ export function QueueBoard({
     if (data) setEntries(data);
   }, [storeId, dayStart]);
 
-  // Realtime: 손님 신규 등록·상태 변경을 즉시 반영. 폴링은 안전망.
   useEffect(() => {
     const supabase = getBrowserSupabase();
     const channel = supabase
@@ -73,7 +88,6 @@ export function QueueBoard({
             : { status: "no_show" };
 
     setBusy(entry.id);
-    // 낙관적 업데이트
     setEntries((prev) =>
       prev.map((e) => (e.id === entry.id ? { ...e, ...patch } : e)),
     );
@@ -83,7 +97,6 @@ export function QueueBoard({
       .update(patch)
       .eq("id", entry.id);
     setBusy(null);
-
     if (error) {
       toast.error("처리에 실패했습니다. 다시 시도해 주세요.");
       refetch();
@@ -92,24 +105,47 @@ export function QueueBoard({
     refetch();
   }
 
-  const waiting = useMemo(
-    () => entries.filter((e) => e.status === "waiting"),
-    [entries],
+  // 필터 + 대기열 순서 → 도착순 정렬
+  const visible = useMemo(() => {
+    const list =
+      filter === "all" ? entries : entries.filter((e) => e.queue_id === filter);
+    return [...list].sort((a, b) => {
+      const qo =
+        (queueOrder.get(a.queue_id) ?? 0) - (queueOrder.get(b.queue_id) ?? 0);
+      if (qo !== 0) return qo;
+      if (a.sort_at !== b.sort_at) return a.sort_at < b.sort_at ? -1 : 1;
+      return a.ticket_no - b.ticket_no;
+    });
+  }, [entries, filter, queueOrder]);
+
+  const waiting = visible.filter((e) => e.status === "waiting");
+  const called = visible.filter((e) => e.status === "called");
+  const done = visible.filter((e) =>
+    ["seated", "canceled", "no_show"].includes(e.status),
   );
-  const called = useMemo(
-    () => entries.filter((e) => e.status === "called"),
-    [entries],
-  );
-  const done = useMemo(
-    () =>
-      entries.filter((e) =>
-        ["seated", "canceled", "no_show"].includes(e.status),
-      ),
-    [entries],
-  );
+
+  const label = (e: QueueEntryRow) =>
+    multi ? queueName.get(e.queue_id) : undefined;
 
   return (
     <div className="space-y-6">
+      {multi && (
+        <div className="flex flex-wrap gap-2">
+          <Chip active={filter === "all"} onClick={() => setFilter("all")}>
+            전체
+          </Chip>
+          {queues.map((q) => (
+            <Chip
+              key={q.id}
+              active={filter === q.id}
+              onClick={() => setFilter(q.id)}
+            >
+              {q.name}
+            </Chip>
+          ))}
+        </div>
+      )}
+
       <div className="grid grid-cols-3 gap-3">
         <Stat label="대기" value={waiting.length} />
         <Stat label="호출됨" value={called.length} />
@@ -120,15 +156,11 @@ export function QueueBoard({
         <Column title="대기 중" count={waiting.length}>
           {waiting.length === 0 && <Empty>대기 중인 손님이 없습니다.</Empty>}
           {waiting.map((e) => (
-            <EntryCard key={e.id} entry={e} busy={busy === e.id}>
+            <EntryCard key={e.id} entry={e} queueLabel={label(e)} busy={busy === e.id}>
               <Button size="sm" onClick={() => act(e, "call")}>
                 호출
               </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => act(e, "cancel")}
-              >
+              <Button size="sm" variant="ghost" onClick={() => act(e, "cancel")}>
                 취소
               </Button>
             </EntryCard>
@@ -138,15 +170,17 @@ export function QueueBoard({
         <Column title="호출됨" count={called.length}>
           {called.length === 0 && <Empty>호출된 손님이 없습니다.</Empty>}
           {called.map((e) => (
-            <EntryCard key={e.id} entry={e} busy={busy === e.id} highlight>
+            <EntryCard
+              key={e.id}
+              entry={e}
+              queueLabel={label(e)}
+              busy={busy === e.id}
+              highlight
+            >
               <Button size="sm" onClick={() => act(e, "seat")}>
                 착석
               </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => act(e, "no_show")}
-              >
+              <Button size="sm" variant="ghost" onClick={() => act(e, "no_show")}>
                 노쇼
               </Button>
             </EntryCard>
@@ -176,6 +210,31 @@ export function QueueBoard({
         </div>
       )}
     </div>
+  );
+}
+
+function Chip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded-full border px-3 py-1 text-sm transition-colors",
+        active
+          ? "border-primary bg-primary text-primary-foreground"
+          : "border-border text-muted-foreground hover:bg-muted",
+      )}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -211,11 +270,13 @@ function Column({
 
 function EntryCard({
   entry,
+  queueLabel,
   busy,
   highlight,
   children,
 }: {
   entry: QueueEntryRow;
+  queueLabel?: string;
   busy: boolean;
   highlight?: boolean;
   children: React.ReactNode;
@@ -228,6 +289,11 @@ function EntryCard({
             {formatTicketNo(entry.ticket_no)}
           </span>
           <div className="text-sm">
+            {queueLabel && (
+              <Badge variant="secondary" className="mb-1">
+                {queueLabel}
+              </Badge>
+            )}
             <p className="font-medium">
               {entry.customer_name}{" "}
               <span className="text-muted-foreground">
@@ -286,5 +352,8 @@ function maskPhone(phone: string): string {
 }
 
 function waitedMinutes(createdAt: string): number {
-  return Math.max(0, Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000));
+  return Math.max(
+    0,
+    Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000),
+  );
 }

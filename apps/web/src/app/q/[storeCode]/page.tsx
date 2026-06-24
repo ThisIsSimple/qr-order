@@ -13,11 +13,18 @@ export default async function StoreQueuePage({
   const supabase = await getServerSupabase();
   const { data: store } = await supabase
     .from("stores")
-    .select("name, store_code")
+    .select("id, name, store_code")
     .eq("store_code", code)
     .maybeSingle();
 
   if (!store) notFound();
+
+  const { data: queues } = await supabase
+    .from("queues")
+    .select("id, name, description, min_party, max_party")
+    .eq("store_id", store.id)
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true });
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10">
@@ -25,10 +32,19 @@ export default async function StoreQueuePage({
         <p className="text-sm text-muted-foreground">대기 등록</p>
         <h1 className="mt-1 text-2xl font-bold">{store.name}</h1>
       </div>
-      <EnqueueForm storeCode={store.store_code} />
-      <p className="mt-6 text-center text-xs text-muted-foreground">
-        등록하시면 순번이 발급되고, 호출 시 화면으로 안내해 드립니다.
-      </p>
+
+      {queues && queues.length > 0 ? (
+        <>
+          <EnqueueForm storeCode={store.store_code} queues={queues} />
+          <p className="mt-6 text-center text-xs text-muted-foreground">
+            등록하시면 순번이 발급되고, 호출 시 화면으로 안내해 드립니다.
+          </p>
+        </>
+      ) : (
+        <p className="text-center text-muted-foreground">
+          현재 대기 등록을 받지 않습니다.
+        </p>
+      )}
     </main>
   );
 }

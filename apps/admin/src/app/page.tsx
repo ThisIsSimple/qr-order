@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Logo } from "@qr/ui/components/logo";
+import { buttonVariants } from "@qr/ui/components/button";
 import { getServerSupabase } from "@/lib/supabase/server";
 import { kstDayStartISO } from "@/lib/day";
 import { QueueBoard } from "./queue-board";
@@ -37,6 +39,12 @@ export default async function DashboardPage() {
     );
   }
 
+  const { data: queues } = await supabase
+    .from("queues")
+    .select("id, name, sort_order")
+    .eq("store_id", store.id)
+    .order("sort_order", { ascending: true });
+
   const dayStart = kstDayStartISO();
   const { data: entries } = await supabase
     .from("queue_entries")
@@ -56,7 +64,15 @@ export default async function DashboardPage() {
               관리자
             </span>
           </div>
-          <LogoutButton />
+          <div className="flex items-center gap-2">
+            <Link
+              href="/queues"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              대기열 설정
+            </Link>
+            <LogoutButton />
+          </div>
         </div>
       </header>
 
@@ -70,6 +86,7 @@ export default async function DashboardPage() {
           storeId={store.id}
           dayStart={dayStart}
           initialEntries={entries ?? []}
+          queues={queues ?? []}
         />
       </div>
     </div>

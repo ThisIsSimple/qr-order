@@ -12,9 +12,9 @@ export const QUEUE_STATUSES = [
 export const queueStatusSchema = z.enum(QUEUE_STATUSES);
 export type QueueStatus = z.infer<typeof queueStatusSchema>;
 
-/** 손님이 /q/[storeCode]에서 제출하는 등록 폼 */
+/** 손님이 /q/[storeCode]에서 제출하는 등록 폼 (대기열 선택 포함) */
 export const enqueueInputSchema = z.object({
-  storeCode: z.string().min(1),
+  queueId: z.string().uuid("대기열을 선택해 주세요"),
   partySize: z.coerce.number().int().min(1).max(50),
   customerName: z.string().trim().min(1).max(40),
   phone: z

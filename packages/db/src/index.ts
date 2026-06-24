@@ -6,6 +6,7 @@ export type { Database, Json } from "./database.types";
 
 /** Convenience row aliases used across apps. */
 export type StoreRow = Database["public"]["Tables"]["stores"]["Row"];
+export type QueueRow = Database["public"]["Tables"]["queues"]["Row"];
 export type QueueEntryRow =
   Database["public"]["Tables"]["queue_entries"]["Row"];
 export type SubscriptionRow =
