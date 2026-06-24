@@ -34,12 +34,51 @@ function capacityLabel(q: QueueOption): string | null {
   return null;
 }
 
+type StoreGeo = {
+  latitude: number | null;
+  longitude: number | null;
+  require_nearby: boolean;
+  nearby_radius_m: number;
+};
+
+function getPosition(): Promise<{ lat: number; lng: number }> {
+  return new Promise((resolve, reject) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      reject();
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+      () => reject(),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 },
+    );
+  });
+}
+
+function distanceMeters(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 export function EnqueueForm({
   storeCode,
   queues,
+  store,
 }: {
   storeCode: string;
   queues: QueueOption[];
+  store: StoreGeo;
 }) {
   const router = useRouter();
   const single = queues.length === 1;
@@ -82,20 +121,56 @@ export function EnqueueForm({
     }
 
     setSubmitting(true);
+
+    // 위치 기반 어뷰징 방지: 매장 근처에서만 등록 허용
+    let coords: { lat: number; lng: number } | null = null;
+    if (
+      store.require_nearby &&
+      store.latitude != null &&
+      store.longitude != null
+    ) {
+      try {
+        coords = await getPosition();
+      } catch {
+        setSubmitting(false);
+        toast.error(
+          "매장 근처인지 확인하기 위해 위치 권한이 필요해요. 허용 후 다시 시도해 주세요.",
+        );
+        return;
+      }
+      const dist = distanceMeters(
+        coords.lat,
+        coords.lng,
+        store.latitude,
+        store.longitude,
+      );
+      if (dist > store.nearby_radius_m) {
+        setSubmitting(false);
+        toast.error(
+          `매장에서 약 ${Math.round(dist)}m 떨어져 있어요. 매장 근처(${store.nearby_radius_m}m 이내)에서 등록해 주세요.`,
+        );
+        return;
+      }
+    }
+
     const supabase = getBrowserSupabase();
     const { data, error } = await supabase.rpc("enqueue_party", {
       p_queue_id: parsed.data.queueId,
       p_party_size: parsed.data.partySize,
       p_customer_name: parsed.data.customerName,
       p_phone: parsed.data.phone ?? "",
+      ...(coords ? { p_lat: coords.lat, p_lng: coords.lng } : {}),
     });
     setSubmitting(false);
 
     if (error || !data?.[0]) {
+      const msg = error?.message ?? "";
       toast.error(
-        error?.message?.includes("phone_required")
-          ? "이 대기열은 휴대폰 번호 입력이 필요해요."
-          : "대기 등록에 실패했어요. 잠시 후 다시 시도해 주세요.",
+        msg.includes("too_far") || msg.includes("location_required")
+          ? "매장 근처에서만 등록할 수 있어요."
+          : msg.includes("phone_required")
+            ? "이 대기열은 휴대폰 번호 입력이 필요해요."
+            : "대기 등록에 실패했어요. 잠시 후 다시 시도해 주세요.",
       );
       return;
     }

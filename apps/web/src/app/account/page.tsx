@@ -14,6 +14,7 @@ import { Logo } from "@qr/ui/components/logo";
 import { PLAN_CATALOG, type Plan } from "@qr/types";
 import { env } from "@/lib/env";
 import { getServerSupabase } from "@/lib/supabase/server";
+import { AddressCard } from "./address-card";
 import { LogoutButton } from "./logout-button";
 import { OnboardingForm } from "./onboarding-form";
 
@@ -29,7 +30,9 @@ export default async function AccountPage() {
   // stores는 공개 SELECT(손님 /q 페이지용)이라 반드시 owner_id로 한정한다.
   const { data: store } = await supabase
     .from("stores")
-    .select("id, name, store_code, address")
+    .select(
+      "id, name, store_code, address, road_address, latitude, longitude, require_nearby, nearby_radius_m",
+    )
     .eq("owner_id", user.id)
     .order("created_at", { ascending: true })
     .limit(1)
@@ -72,7 +75,17 @@ async function StoreDashboard({
   store,
 }: {
   storeId: string;
-  store: { name: string; store_code: string; address: string | null };
+  store: {
+    id: string;
+    name: string;
+    store_code: string;
+    address: string | null;
+    road_address: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    require_nearby: boolean;
+    nearby_radius_m: number;
+  };
 }) {
   const supabase = await getServerSupabase();
   const { data: sub } = await supabase
@@ -107,6 +120,8 @@ async function StoreDashboard({
           </Link>
         </CardContent>
       </Card>
+
+      <AddressCard store={store} />
 
       <Card>
         <CardHeader>

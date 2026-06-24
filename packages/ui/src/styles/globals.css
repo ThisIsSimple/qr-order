@@ -137,3 +137,13 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* 실시간 마퀴(흐르는 띠) — 콘텐츠 4개 반복, -50% 이동으로 무한 루프 */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}

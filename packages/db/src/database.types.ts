@@ -201,8 +201,13 @@ export type Database = {
           address: string | null
           created_at: string
           id: string
+          latitude: number | null
+          longitude: number | null
           name: string
+          nearby_radius_m: number
           owner_id: string | null
+          require_nearby: boolean
+          road_address: string | null
           settings: Json
           store_code: string
         }
@@ -210,8 +215,13 @@ export type Database = {
           address?: string | null
           created_at?: string
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           name: string
+          nearby_radius_m?: number
           owner_id?: string | null
+          require_nearby?: boolean
+          road_address?: string | null
           settings?: Json
           store_code?: string
         }
@@ -219,8 +229,13 @@ export type Database = {
           address?: string | null
           created_at?: string
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           name?: string
+          nearby_radius_m?: number
           owner_id?: string | null
+          require_nearby?: boolean
+          road_address?: string | null
           settings?: Json
           store_code?: string
         }
@@ -283,6 +298,8 @@ export type Database = {
       enqueue_party: {
         Args: {
           p_customer_name: string
+          p_lat?: number
+          p_lng?: number
           p_party_size: number
           p_phone: string
           p_queue_id: string
