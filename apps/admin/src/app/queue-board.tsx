@@ -30,6 +30,7 @@ export function QueueBoard({
       .select("*")
       .eq("store_id", storeId)
       .gte("created_at", dayStart)
+      .order("sort_at", { ascending: true })
       .order("ticket_no", { ascending: true });
     if (data) setEntries(data);
   }, [storeId, dayStart]);

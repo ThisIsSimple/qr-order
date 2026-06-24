@@ -79,10 +79,12 @@ export type Database = {
           called_at: string | null
           created_at: string
           customer_name: string
+          defer_count: number
           id: string
           party_size: number
           phone: string | null
           seated_at: string | null
+          sort_at: string
           status: string
           store_id: string
           ticket_no: number
@@ -92,10 +94,12 @@ export type Database = {
           called_at?: string | null
           created_at?: string
           customer_name: string
+          defer_count?: number
           id?: string
           party_size: number
           phone?: string | null
           seated_at?: string | null
+          sort_at?: string
           status?: string
           store_id: string
           ticket_no: number
@@ -105,10 +109,12 @@ export type Database = {
           called_at?: string | null
           created_at?: string
           customer_name?: string
+          defer_count?: number
           id?: string
           party_size?: number
           phone?: string | null
           seated_at?: string | null
+          sort_at?: string
           status?: string
           store_id?: string
           ticket_no?: number
@@ -202,6 +208,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cancel_my_entry: { Args: { p_access_token: string }; Returns: string }
+      defer_my_entry: {
+        Args: { p_access_token: string; p_teams?: number }
+        Returns: string
+      }
       enqueue_party: {
         Args: {
           p_customer_name: string
@@ -220,6 +231,7 @@ export type Database = {
       get_entry_status: {
         Args: { p_access_token: string }
         Returns: {
+          defer_count: number
           entry_id: string
           party_size: number
           status: string

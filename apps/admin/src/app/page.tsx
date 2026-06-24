@@ -43,6 +43,7 @@ export default async function DashboardPage() {
     .select("*")
     .eq("store_id", store.id)
     .gte("created_at", dayStart)
+    .order("sort_at", { ascending: true })
     .order("ticket_no", { ascending: true });
 
   return (

@@ -3,7 +3,19 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Store } from "lucide-react";
+import { toast } from "sonner";
 import { formatTicketNo } from "@qr/types";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@qr/ui/components/alert-dialog";
 import { Button } from "@qr/ui/components/button";
 import {
   Card,
@@ -27,6 +39,7 @@ type EntryStatus = {
   party_size: number;
   status: string;
   waiting_ahead: number;
+  defer_count: number;
 };
 
 type StoreInfo = {
@@ -36,6 +49,7 @@ type StoreInfo = {
 };
 
 const POLL_MS = 5000;
+const MAX_DEFER = 2;
 
 export function TicketStatus({
   token,
@@ -48,6 +62,7 @@ export function TicketStatus({
 }) {
   const [entry, setEntry] = useState<EntryStatus | null>(null);
   const [state, setState] = useState<"loading" | "ok" | "missing">("loading");
+  const [acting, setActing] = useState(false);
 
   const fetchStatus = useCallback(async () => {
     const supabase = getBrowserSupabase();
@@ -69,6 +84,43 @@ export function TicketStatus({
     const id = setInterval(fetchStatus, POLL_MS);
     return () => clearInterval(id);
   }, [fetchStatus]);
+
+  async function handleCancel() {
+    setActing(true);
+    const supabase = getBrowserSupabase();
+    const { error } = await supabase.rpc("cancel_my_entry", {
+      p_access_token: token,
+    });
+    setActing(false);
+    if (error) {
+      toast.error("취소에 실패했어요. 다시 시도해 주세요.");
+      return;
+    }
+    toast.success("대기를 취소했습니다.");
+    fetchStatus();
+  }
+
+  async function handleDefer() {
+    setActing(true);
+    const supabase = getBrowserSupabase();
+    const { data, error } = await supabase.rpc("defer_my_entry", {
+      p_access_token: token,
+      p_teams: 2,
+    });
+    setActing(false);
+    if (error) {
+      toast.error("처리에 실패했어요. 다시 시도해 주세요.");
+      return;
+    }
+    if (data === "limit") {
+      toast.error(`미루기는 최대 ${MAX_DEFER}회까지 가능해요.`);
+    } else if (data === "no_teams_behind") {
+      toast("뒤에 대기 중인 팀이 없어요.");
+    } else if (data === "deferred") {
+      toast.success("뒤로 2팀 미뤘어요.");
+    }
+    fetchStatus();
+  }
 
   if (state === "loading") {
     return (
@@ -92,10 +144,12 @@ export function TicketStatus({
   }
 
   const storeName = store?.name ?? entry.store_name;
+  const canDefer = entry.status === "waiting";
+  const canCancel = entry.status === "waiting" || entry.status === "called";
+  const deferLeft = MAX_DEFER - entry.defer_count;
 
   return (
     <div className="space-y-5">
-      {/* 지금 웨이팅 중인 매장 정보 */}
       <Item variant="outline" size="default">
         <ItemMedia variant="icon">
           <Store className="text-primary" />
@@ -109,6 +163,55 @@ export function TicketStatus({
       </Item>
 
       <StatusPanel entry={entry} />
+
+      {(canDefer || canCancel) && (
+        <div className="flex flex-col gap-2">
+          {canDefer && (
+            <Button
+              variant="outline"
+              size="lg"
+              disabled={acting || deferLeft <= 0}
+              onClick={handleDefer}
+            >
+              {deferLeft > 0
+                ? `잠시 미루기 · 뒤로 2팀 (남은 ${deferLeft}회)`
+                : "미루기 모두 사용 (2/2)"}
+            </Button>
+          )}
+          {canCancel && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="lg"
+                  className="text-destructive hover:text-destructive"
+                  disabled={acting}
+                >
+                  대기 취소
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>대기를 취소할까요?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    취소하면 순번이 사라지며 되돌릴 수 없어요. 다시 대기하려면
+                    처음부터 등록해야 합니다.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>닫기</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleCancel}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    대기 취소
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
         <span className="inline-block size-1.5 animate-pulse rounded-full bg-primary" />
@@ -164,7 +267,6 @@ function StatusPanel({ entry }: { entry: EntryStatus }) {
     );
   }
 
-  // waiting
   return (
     <Card>
       <CardContent className="py-8 text-center">
