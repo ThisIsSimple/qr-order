@@ -151,7 +151,7 @@ export function TicketStatus({
 
   return (
     <div className="space-y-5">
-      <Item variant="outline" size="default">
+      <Item variant="outline" size="default" className="bg-card shadow-sm">
         <ItemMedia variant="icon">
           <Store className="text-primary" />
         </ItemMedia>

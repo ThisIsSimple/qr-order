@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { Card, CardContent } from "@qr/ui/components/card";
 import { getServerSupabase } from "@/lib/supabase/server";
 import { EnqueueForm } from "./enqueue-form";
 
@@ -35,7 +36,11 @@ export default async function StoreQueuePage({
 
       {queues && queues.length > 0 ? (
         <>
-          <EnqueueForm storeCode={store.store_code} queues={queues} />
+          <Card>
+            <CardContent className="py-6">
+              <EnqueueForm storeCode={store.store_code} queues={queues} />
+            </CardContent>
+          </Card>
           <p className="mt-6 text-center text-xs text-muted-foreground">
             등록하시면 순번이 발급되고, 호출 시 화면으로 안내해 드립니다.
           </p>

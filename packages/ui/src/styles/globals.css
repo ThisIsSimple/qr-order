@@ -58,7 +58,8 @@
     system-ui, Roboto, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic",
     sans-serif;
 
-  --background: oklch(1 0 0);
+  /* 옅은 회색 캔버스 — 흰색 카드가 떠 보이도록 */
+  --background: oklch(0.971 0.003 247.86);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -67,15 +68,15 @@
   /* Brand: Trust Blue (#2563EB / blue-600) */
   --primary: oklch(0.546 0.245 262.881);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
+  --secondary: oklch(0.948 0.004 247.86);
   --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0.013 262);
+  --muted: oklch(0.948 0.004 247.86);
+  --muted-foreground: oklch(0.552 0.012 247.86);
+  --accent: oklch(0.948 0.025 255);
   --accent-foreground: oklch(0.546 0.245 262.881);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
+  --border: oklch(0.905 0.005 247.86);
+  --input: oklch(0.905 0.005 247.86);
   --ring: oklch(0.546 0.245 262.881);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);

@@ -32,7 +32,7 @@ export default function LandingPage() {
           return (
             <div
               key={plan}
-              className="rounded-lg border border-border p-6 text-left"
+              className="rounded-xl border border-border bg-card p-6 text-left shadow-sm"
             >
               <h3 className="text-lg font-semibold">{info.label}</h3>
               <p className="mt-2 text-3xl font-bold">
