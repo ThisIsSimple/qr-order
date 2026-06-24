@@ -1,0 +1,36 @@
+{
+  "name": "@qr/admin",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3101",
+    "build": "next build",
+    "start": "next start --port 3101",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@qr/db": "workspace:*",
+    "@qr/types": "workspace:*",
+    "@qr/ui": "workspace:*",
+    "@supabase/ssr": "^0.12.0",
+    "@supabase/supabase-js": "^2.47.10",
+    "lucide-react": "^1.21.0",
+    "next": "^15.1.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "sonner": "^2.0.7",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@qr/config": "workspace:*",
+    "@tailwindcss/postcss": "^4.0.0",
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^15.1.3",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.7.2"
+  }
+}

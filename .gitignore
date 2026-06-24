@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# build outputs
+.next/
+out/
+dist/
+build/
+.turbo/
+
+# env
+.env
+.env*.local
+!.env.example
+
+# supabase
+supabase/.branches
+supabase/.temp
+**/supabase/.env
+
+# misc
+.DS_Store
+*.log
+*.tsbuildinfo
+coverage/
