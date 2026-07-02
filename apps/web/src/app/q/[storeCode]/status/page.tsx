@@ -1,5 +1,3 @@
-import Link from "next/link";
-import { Button } from "@qr/ui/components/button";
 import { AdSlot } from "@/components/ad-slot";
 import { StoreMapCard } from "@/components/store-map-card";
 import { getServerSupabase } from "@/lib/supabase/server";
@@ -16,17 +14,7 @@ export default async function StatusPage({
   const { storeCode } = await params;
   const { token } = await searchParams;
 
-  if (!token) {
-    return (
-      <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-4 px-5 text-center">
-        <p className="text-muted-foreground">대기 정보를 찾을 수 없습니다.</p>
-        <Button asChild variant="outline">
-          <Link href={`/q/${storeCode}`}>대기 등록하기</Link>
-        </Button>
-      </main>
-    );
-  }
-
+  // token이 없어도 클라이언트가 sessionStorage에서 복원한다 (URL에서 토큰 제거 후 새로고침 대응)
   const supabase = await getServerSupabase();
   const { data: store } = await supabase
     .from("stores")
@@ -39,7 +27,11 @@ export default async function StatusPage({
       <LiveMarquee />
       <main className="mx-auto max-w-md px-5 pt-14 pb-12">
         <div className="py-4">
-          <TicketStatus token={token} storeCode={storeCode} store={store ?? null} />
+          <TicketStatus
+            token={token ?? null}
+            storeCode={storeCode}
+            store={store ?? null}
+          />
         </div>
         <div className="mt-4 space-y-4">
           <AdSlot />

@@ -45,6 +45,14 @@ export function SignupForm() {
       return;
     }
 
+    // 이미 가입된 이메일: Supabase는 성공처럼 응답하지만 identities가 비어 있다
+    if (data.user && data.user.identities?.length === 0) {
+      setSubmitting(false);
+      toast.error("이미 가입된 이메일입니다. 로그인해 주세요.");
+      router.replace("/login");
+      return;
+    }
+
     setSubmitting(false);
     toast.success("가입되었습니다. 이메일 인증 후 로그인해 주세요.");
     router.replace("/login");

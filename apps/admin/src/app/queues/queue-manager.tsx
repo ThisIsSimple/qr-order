@@ -19,9 +19,23 @@ import { Button } from "@qr/ui/components/button";
 import { Card, CardContent } from "@qr/ui/components/card";
 import { Input } from "@qr/ui/components/input";
 import { Label } from "@qr/ui/components/label";
+import { kstDayStartISO } from "@/lib/day";
 import { getBrowserSupabase } from "@/lib/supabase/client";
 
 type NewQueue = { name: string; min: string; max: string };
+
+/** 인원 범위 검증 — 통과하면 null, 아니면 사용자에게 보여줄 메시지. */
+function partyRangeError(min: number | null, max: number | null): string | null {
+  for (const v of [min, max]) {
+    if (v !== null && (!Number.isInteger(v) || v < 1 || v > 50)) {
+      return "인원은 1~50 사이의 정수로 입력해 주세요.";
+    }
+  }
+  if (min !== null && max !== null && min > max) {
+    return "최소 인원이 최대 인원보다 클 수 없어요.";
+  }
+  return null;
+}
 
 export function QueueManager({
   storeId,
@@ -50,6 +64,11 @@ export function QueueManager({
     e.preventDefault();
     if (!draft.name.trim()) {
       toast.error("대기열 이름을 입력해 주세요.");
+      return;
+    }
+    const rangeError = partyRangeError(parseNum(draft.min), parseNum(draft.max));
+    if (rangeError) {
+      toast.error(rangeError);
       return;
     }
     setBusy(true);
@@ -90,13 +109,22 @@ export function QueueManager({
   async function move(index: number, dir: -1 | 1) {
     const other = index + dir;
     if (other < 0 || other >= queues.length) return;
-    const a = queues[index]!;
-    const b = queues[other]!;
+    // 두 값 스왑 대신 전체를 0..n-1로 재부여 — 중복 sort_order가 생겨도 자가 치유
+    const next = [...queues];
+    [next[index], next[other]] = [next[other]!, next[index]!];
     setBusy(true);
     const supabase = getBrowserSupabase();
-    await supabase.from("queues").update({ sort_order: b.sort_order }).eq("id", a.id);
-    await supabase.from("queues").update({ sort_order: a.sort_order }).eq("id", b.id);
+    const results = await Promise.all(
+      next.map((q, i) =>
+        q.sort_order === i
+          ? Promise.resolve({ error: null })
+          : supabase.from("queues").update({ sort_order: i }).eq("id", q.id),
+      ),
+    );
     setBusy(false);
+    if (results.some((r) => r.error)) {
+      toast.error("순서 변경에 실패했어요. 다시 시도해 주세요.");
+    }
     refetch();
   }
 
@@ -107,6 +135,20 @@ export function QueueManager({
     }
     setBusy(true);
     const supabase = getBrowserSupabase();
+    // 대기/호출 중인 팀이 있으면 삭제 차단 — 손님 대기 화면이 갑자기 사라지는 것 방지
+    const { count } = await supabase
+      .from("queue_entries")
+      .select("id", { count: "exact", head: true })
+      .eq("queue_id", id)
+      .in("status", ["waiting", "called"])
+      .gte("created_at", kstDayStartISO());
+    if (count && count > 0) {
+      setBusy(false);
+      toast.error(
+        `대기·호출 중인 팀이 ${count}팀 있어요. 먼저 처리하거나 '비활성화'를 사용해 주세요.`,
+      );
+      return;
+    }
     const { error } = await supabase.from("queues").delete().eq("id", id);
     setBusy(false);
     if (error) {
@@ -127,13 +169,18 @@ export function QueueManager({
             index={i}
             total={queues.length}
             busy={busy}
-            onSave={(name, min, max) =>
+            onSave={(name, min, max) => {
+              const rangeError = partyRangeError(min, max);
+              if (rangeError) {
+                toast.error(rangeError);
+                return;
+              }
               patch(q.id, {
                 name,
                 min_party: min,
                 max_party: max,
-              })
-            }
+              });
+            }}
             onToggle={() => patch(q.id, { is_active: !q.is_active })}
             onTogglePhone={() =>
               patch(q.id, { phone_required: !q.phone_required })

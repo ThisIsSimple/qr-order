@@ -8,6 +8,7 @@ import { Badge } from "@qr/ui/components/badge";
 import { Button } from "@qr/ui/components/button";
 import { Card, CardContent } from "@qr/ui/components/card";
 import { cn } from "@qr/ui/lib/utils";
+import { kstDayStartISO } from "@/lib/day";
 import { getBrowserSupabase } from "@/lib/supabase/client";
 
 const REFETCH_MS = 10000;
@@ -16,12 +17,10 @@ type QueueMeta = { id: string; name: string; sort_order: number };
 
 export function QueueBoard({
   storeId,
-  dayStart,
   initialEntries,
   queues,
 }: {
   storeId: string;
-  dayStart: string;
   initialEntries: QueueEntryRow[];
   queues: QueueMeta[];
 }) {
@@ -41,15 +40,16 @@ export function QueueBoard({
 
   const refetch = useCallback(async () => {
     const supabase = getBrowserSupabase();
+    // 하루 시작(KST)은 매번 다시 계산 — 자정을 넘겨 켜둔 태블릿에서도 오늘 기준 유지
     const { data } = await supabase
       .from("queue_entries")
       .select("*")
       .eq("store_id", storeId)
-      .gte("created_at", dayStart)
+      .gte("created_at", kstDayStartISO())
       .order("sort_at", { ascending: true })
       .order("ticket_no", { ascending: true });
     if (data) setEntries(data);
-  }, [storeId, dayStart]);
+  }, [storeId]);
 
   useEffect(() => {
     const supabase = getBrowserSupabase();
@@ -65,7 +65,10 @@ export function QueueBoard({
         },
         () => refetch(),
       )
-      .subscribe();
+      // 구독 확립/재연결 시점에 즉시 동기화 — 그 사이 놓친 이벤트를 캐치업
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") refetch();
+      });
 
     const id = setInterval(refetch, REFETCH_MS);
     return () => {
@@ -92,13 +95,22 @@ export function QueueBoard({
       prev.map((e) => (e.id === entry.id ? { ...e, ...patch } : e)),
     );
     const supabase = getBrowserSupabase();
-    const { error } = await supabase
+    // CAS: 화면에 보이던 상태에서만 전환 — 다른 기기/손님 취소와의 경쟁에서
+    // 착석된 팀을 취소하는 식의 덮어쓰기를 막는다
+    const { data, error } = await supabase
       .from("queue_entries")
       .update(patch)
-      .eq("id", entry.id);
+      .eq("id", entry.id)
+      .eq("status", entry.status)
+      .select("id");
     setBusy(null);
     if (error) {
       toast.error("처리에 실패했습니다. 다시 시도해 주세요.");
+      refetch();
+      return;
+    }
+    if (!data?.length) {
+      toast.error("이미 다른 기기에서 처리된 손님이에요. 목록을 갱신합니다.");
       refetch();
       return;
     }

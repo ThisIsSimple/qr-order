@@ -31,7 +31,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-  ],
+  // 세션이 필요한 영역만: 익명 고트래픽 경로(/q/*)에서 불필요한 토큰 갱신을 피한다
+  matcher: ["/account/:path*", "/login", "/signup", "/api/:path*"],
 };

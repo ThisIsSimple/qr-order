@@ -35,24 +35,26 @@ export function AddressCard({ store }: { store: StoreLoc }) {
 
   async function saveAddress(address: string) {
     setBusy(true);
-    const supabase = getBrowserSupabase();
-    const { error } = await supabase
-      .from("stores")
-      .update({ address })
-      .eq("id", store.id);
-    if (error) {
-      setBusy(false);
-      toast.error("주소 저장에 실패했어요.");
-      return;
-    }
+    // 주소+좌표는 서버 라우트에서 함께 갱신한다 (실패 시 옛 좌표가 남지 않도록)
     const res = await fetch("/api/geocode-store", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ storeId: store.id }),
+      body: JSON.stringify({ storeId: store.id, address }),
     }).catch(() => null);
+    const result = res
+      ? ((await res.json().catch(() => null)) as {
+          addressSaved?: boolean;
+        } | null)
+      : null;
     setBusy(false);
-    if (!res || !res.ok) {
-      toast.error("좌표 변환에 실패했어요. 주소를 다시 확인해 주세요.");
+    if (!res || (!res.ok && !result?.addressSaved)) {
+      toast.error("주소 저장에 실패했어요. 잠시 후 다시 시도해 주세요.");
+      return;
+    }
+    if (!res.ok) {
+      toast.error(
+        "주소는 저장했지만 좌표를 찾지 못했어요. 도로명 주소로 다시 검색해 주세요.",
+      );
       router.refresh();
       return;
     }

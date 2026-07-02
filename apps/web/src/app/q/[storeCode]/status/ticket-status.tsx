@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Store } from "lucide-react";
 import { toast } from "sonner";
@@ -52,25 +52,65 @@ type StoreInfo = {
 const POLL_MS = 5000;
 const MAX_DEFER = 2;
 
+const TERMINAL_STATUSES = ["seated", "canceled", "no_show"];
+
 export function TicketStatus({
-  token,
+  token: serverToken,
   storeCode,
   store,
 }: {
-  token: string;
+  token: string | null;
   storeCode: string;
   store: StoreInfo | null;
 }) {
+  const [token, setToken] = useState<string | null>(serverToken);
   const [entry, setEntry] = useState<EntryStatus | null>(null);
-  const [state, setState] = useState<"loading" | "ok" | "missing">("loading");
+  const [state, setState] = useState<"loading" | "ok" | "missing" | "error">(
+    "loading",
+  );
   const [acting, setActing] = useState(false);
+  const seqRef = useRef(0);
+  const failsRef = useRef(0);
+
+  // 토큰은 취소/미루기 권한까지 가진 자격증명 — URL에 남기지 않는다.
+  // 최초 진입 시 sessionStorage로 옮기고 쿼리에서 제거, 새로고침이면 복원.
+  useEffect(() => {
+    const key = `wq-token-${storeCode.toUpperCase()}`;
+    try {
+      if (serverToken) {
+        sessionStorage.setItem(key, serverToken);
+        const url = new URL(window.location.href);
+        if (url.searchParams.has("token")) {
+          url.searchParams.delete("token");
+          window.history.replaceState(null, "", url.toString());
+        }
+      } else {
+        const saved = sessionStorage.getItem(key);
+        if (saved) setToken(saved);
+        else setState("missing");
+      }
+    } catch {
+      if (!serverToken) setState("missing");
+    }
+  }, [serverToken, storeCode]);
 
   const fetchStatus = useCallback(async () => {
+    if (!token) return;
+    const seq = ++seqRef.current;
     const supabase = getBrowserSupabase();
     const { data, error } = await supabase.rpc("get_entry_status", {
       p_access_token: token,
     });
-    if (error) return;
+    if (seq !== seqRef.current) return; // 늦게 도착한 이전 응답은 버린다
+    if (error) {
+      failsRef.current += 1;
+      // 첫 화면조차 못 그린 채 연속 실패하면 에러 안내로 전환 (폴링은 계속)
+      if (failsRef.current >= 3) {
+        setState((s) => (s === "loading" ? "error" : s));
+      }
+      return;
+    }
+    failsRef.current = 0;
     const row = data?.[0];
     if (!row) {
       setState("missing");
@@ -80,28 +120,42 @@ export function TicketStatus({
     setState("ok");
   }, [token]);
 
+  const terminal =
+    state === "missing" ||
+    (entry != null && TERMINAL_STATUSES.includes(entry.status));
+
   useEffect(() => {
     fetchStatus();
-    const id = setInterval(fetchStatus, POLL_MS);
-    return () => clearInterval(id);
   }, [fetchStatus]);
 
+  useEffect(() => {
+    if (terminal) return; // 착석/취소/노쇼면 더 폴링하지 않는다
+    const id = setInterval(fetchStatus, POLL_MS);
+    return () => clearInterval(id);
+  }, [fetchStatus, terminal]);
+
   async function handleCancel() {
+    if (!token) return;
     setActing(true);
     const supabase = getBrowserSupabase();
-    const { error } = await supabase.rpc("cancel_my_entry", {
+    const { data, error } = await supabase.rpc("cancel_my_entry", {
       p_access_token: token,
     });
     setActing(false);
-    if (error) {
+    if (error || data === "not_found") {
       toast.error("취소에 실패했어요. 다시 시도해 주세요.");
       return;
     }
-    toast.success("대기를 취소했습니다.");
+    if (data === "canceled") {
+      toast.success("대기를 취소했습니다.");
+    } else {
+      toast(`이미 처리된 대기예요. (${STATUS_WORD[data ?? ""] ?? data})`);
+    }
     fetchStatus();
   }
 
   async function handleDefer() {
+    if (!token) return;
     setActing(true);
     const supabase = getBrowserSupabase();
     const { data, error } = await supabase.rpc("defer_my_entry", {
@@ -109,7 +163,7 @@ export function TicketStatus({
       p_teams: 2,
     });
     setActing(false);
-    if (error) {
+    if (error || data === "not_found") {
       toast.error("처리에 실패했어요. 다시 시도해 주세요.");
       return;
     }
@@ -117,6 +171,8 @@ export function TicketStatus({
       toast.error(`미루기는 최대 ${MAX_DEFER}회까지 가능해요.`);
     } else if (data === "no_teams_behind") {
       toast("뒤에 대기 중인 팀이 없어요.");
+    } else if (data === "not_waiting") {
+      toast("지금은 미룰 수 없어요. 이미 호출되었을 수 있어요.");
     } else if (data === "deferred") {
       toast.success("뒤로 2팀 미뤘어요.");
     }
@@ -128,6 +184,26 @@ export function TicketStatus({
       <p className="text-center text-muted-foreground">
         대기 정보를 불러오는 중…
       </p>
+    );
+  }
+
+  if (state === "error") {
+    return (
+      <div className="flex flex-col items-center gap-4 text-center">
+        <p className="text-muted-foreground">
+          연결이 불안정해 대기 정보를 불러오지 못했어요.
+        </p>
+        <Button
+          variant="outline"
+          onClick={() => {
+            setState("loading");
+            failsRef.current = 0;
+            fetchStatus();
+          }}
+        >
+          다시 시도
+        </Button>
+      </div>
     );
   }
 
@@ -214,13 +290,21 @@ export function TicketStatus({
         </div>
       )}
 
-      <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-        <span className="inline-block size-1.5 animate-pulse rounded-full bg-primary" />
-        실시간 업데이트 중
-      </div>
+      {!terminal && (
+        <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+          <span className="inline-block size-1.5 animate-pulse rounded-full bg-primary" />
+          실시간 업데이트 중
+        </div>
+      )}
     </div>
   );
 }
+
+const STATUS_WORD: Record<string, string> = {
+  seated: "착석",
+  canceled: "취소",
+  no_show: "노쇼",
+};
 
 function StatusPanel({ entry }: { entry: EntryStatus }) {
   if (entry.status === "called") {

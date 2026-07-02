@@ -51,17 +51,25 @@ export function OnboardingForm() {
       return;
     }
 
-    // 주소가 있으면 좌표 변환(지오코딩)
+    // 주소가 있으면 좌표 변환(지오코딩) — 실패해도 매장 등록은 유지하되 알려준다
+    let geocoded = true;
     if (parsed.data.address) {
-      await fetch("/api/geocode-store", {
+      const res = await fetch("/api/geocode-store", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ storeId: created.id }),
-      }).catch(() => {});
+      }).catch(() => null);
+      geocoded = !!res?.ok;
     }
 
     setSubmitting(false);
-    toast.success("매장이 등록되었습니다!");
+    if (geocoded) {
+      toast.success("매장이 등록되었습니다!");
+    } else {
+      toast.warning(
+        "매장은 등록됐지만 주소의 좌표를 찾지 못했어요. 매장 위치에서 주소를 다시 검색해 주세요.",
+      );
+    }
     router.refresh();
   }
 

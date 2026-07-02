@@ -16,6 +16,7 @@ export function LiveMarquee() {
           hour: "2-digit",
           minute: "2-digit",
           second: "2-digit",
+          timeZone: "Asia/Seoul", // 기기 시간대가 달라도 매장 기준(KST) 시각
         }),
       );
     tick();

@@ -41,18 +41,32 @@ type StoreGeo = {
   nearby_radius_m: number;
 };
 
-function getPosition(): Promise<{ lat: number; lng: number }> {
+type Coords = { lat: number; lng: number };
+
+function getPosition(): Promise<Coords> {
   return new Promise((resolve, reject) => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
-      reject();
+      reject(null);
       return;
     }
     navigator.geolocation.getCurrentPosition(
       (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
-      () => reject(),
+      (err) => reject(err),
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 },
     );
   });
+}
+
+function geoErrorMessage(err: unknown): string {
+  // PERMISSION_DENIED(1)만 권한 안내, 나머지(실내 GPS 불가·타임아웃)는 재시도 안내
+  if (err && (err as GeolocationPositionError).code === 1) {
+    return "위치 권한이 꺼져 있어요. 브라우저 설정에서 위치 권한을 허용한 뒤 다시 시도해 주세요.";
+  }
+  return "현재 위치를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.";
+}
+
+function clampParty(n: number, q: QueueOption | null): number {
+  return Math.min(Math.max(n, q?.min_party ?? 1), q?.max_party ?? 50);
 }
 
 function distanceMeters(
@@ -85,7 +99,9 @@ export function EnqueueForm({
   const [queueId, setQueueId] = useState(single ? queues[0]!.id : "");
   // 대기열이 2개 이상이면 진입 즉시 선택 Drawer를 띄운다 (생각 단계 1개 제거).
   const [drawerOpen, setDrawerOpen] = useState(!single);
-  const [partySize, setPartySize] = useState(2);
+  const [partySize, setPartySize] = useState(() =>
+    clampParty(2, single ? queues[0]! : null),
+  );
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -94,6 +110,8 @@ export function EnqueueForm({
   const phoneRequired = !!selectedQueue?.phone_required;
 
   function selectQueue(id: string) {
+    const q = queues.find((x) => x.id === id) ?? null;
+    setPartySize((n) => clampParty(n, q));
     setQueueId(id);
     setDrawerOpen(false);
   }
@@ -120,10 +138,24 @@ export function EnqueueForm({
       return;
     }
 
+    // 대기열 인원 기준 검증 (서버에서도 강제하지만 먼저 안내)
+    if (
+      selectedQueue &&
+      partySize !== clampParty(partySize, selectedQueue)
+    ) {
+      const cap = capacityLabel(selectedQueue);
+      toast.error(
+        cap
+          ? `이 대기열은 ${cap} 기준이에요. 인원이나 대기열을 변경해 주세요.`
+          : "인원을 확인해 주세요.",
+      );
+      return;
+    }
+
     setSubmitting(true);
 
     // 위치 기반 어뷰징 방지: 매장 근처에서만 등록 허용
-    let coords: { lat: number; lng: number } | null = null;
+    let coords: Coords | null = null;
     if (
       store.require_nearby &&
       store.latitude != null &&
@@ -131,11 +163,9 @@ export function EnqueueForm({
     ) {
       try {
         coords = await getPosition();
-      } catch {
+      } catch (err) {
         setSubmitting(false);
-        toast.error(
-          "매장 근처인지 확인하기 위해 위치 권한이 필요해요. 허용 후 다시 시도해 주세요.",
-        );
+        toast.error(geoErrorMessage(err));
         return;
       }
       const dist = distanceMeters(
@@ -154,27 +184,45 @@ export function EnqueueForm({
     }
 
     const supabase = getBrowserSupabase();
-    const { data, error } = await supabase.rpc("enqueue_party", {
-      p_queue_id: parsed.data.queueId,
-      p_party_size: parsed.data.partySize,
-      p_customer_name: parsed.data.customerName,
-      p_phone: parsed.data.phone ?? "",
-      ...(coords ? { p_lat: coords.lat, p_lng: coords.lng } : {}),
-    });
-    setSubmitting(false);
+    const enqueue = (c: Coords | null) =>
+      supabase.rpc("enqueue_party", {
+        p_queue_id: parsed.data.queueId,
+        p_party_size: parsed.data.partySize,
+        p_customer_name: parsed.data.customerName,
+        p_phone: parsed.data.phone ?? "",
+        ...(c ? { p_lat: c.lat, p_lng: c.lng } : {}),
+      });
+
+    let { data, error } = await enqueue(coords);
+
+    // 페이지 로드 후 매장이 '근처 등록'을 켠 경우: 위치를 받아 한 번 재시도
+    if (error?.message.includes("location_required") && !coords) {
+      try {
+        coords = await getPosition();
+      } catch (err) {
+        setSubmitting(false);
+        toast.error(geoErrorMessage(err));
+        return;
+      }
+      ({ data, error } = await enqueue(coords));
+    }
 
     if (error || !data?.[0]) {
+      setSubmitting(false);
       const msg = error?.message ?? "";
       toast.error(
         msg.includes("too_far") || msg.includes("location_required")
           ? "매장 근처에서만 등록할 수 있어요."
-          : msg.includes("phone_required")
-            ? "이 대기열은 휴대폰 번호 입력이 필요해요."
-            : "대기 등록에 실패했어요. 잠시 후 다시 시도해 주세요.",
+          : msg.includes("party_size_out_of_range")
+            ? "선택한 대기열의 인원 기준에 맞지 않아요. 인원이나 대기열을 변경해 주세요."
+            : msg.includes("phone_required")
+              ? "이 대기열은 휴대폰 번호 입력이 필요해요."
+              : "대기 등록에 실패했어요. 잠시 후 다시 시도해 주세요.",
       );
       return;
     }
 
+    // 성공: 이동이 끝날 때까지 submitting을 유지해 더블탭 중복 등록을 막는다
     router.push(`/q/${storeCode}/status?token=${data[0].access_token}`);
   }
 
@@ -210,6 +258,8 @@ export function EnqueueForm({
 
   // ── STEP 2 (또는 단일 대기열): 정보 입력 ─────────────────────────────────────
   const cap = selectedQueue ? capacityLabel(selectedQueue) : null;
+  const minParty = selectedQueue?.min_party ?? 1;
+  const maxParty = selectedQueue?.max_party ?? 50;
 
   return (
     <>
@@ -249,8 +299,8 @@ export function EnqueueForm({
               variant="outline"
               size="icon-lg"
               aria-label="인원 줄이기"
-              disabled={partySize <= 1}
-              onClick={() => setPartySize((n) => Math.max(1, n - 1))}
+              disabled={partySize <= minParty}
+              onClick={() => setPartySize((n) => Math.max(minParty, n - 1))}
             >
               <Minus />
             </Button>
@@ -265,8 +315,8 @@ export function EnqueueForm({
               variant="outline"
               size="icon-lg"
               aria-label="인원 늘리기"
-              disabled={partySize >= 50}
-              onClick={() => setPartySize((n) => Math.min(50, n + 1))}
+              disabled={partySize >= maxParty}
+              onClick={() => setPartySize((n) => Math.min(maxParty, n + 1))}
             >
               <Plus />
             </Button>

@@ -84,7 +84,6 @@ export default async function DashboardPage() {
 
         <QueueBoard
           storeId={store.id}
-          dayStart={dayStart}
           initialEntries={entries ?? []}
           queues={queues ?? []}
         />
