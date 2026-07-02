@@ -21,7 +21,12 @@ export function StoreMapCard({
   longitude: number | null;
 }) {
   const appkey = process.env.NEXT_PUBLIC_KAKAO_JS_KEY ?? "";
-  const [loading, error] = useKakaoLoader({ appkey });
+  // 기본값은 프로토콜 상대 URL(//dapi.kakao.com)이라 http 로컬 환경에서 503으로
+  // 실패한다 — https를 명시해야 localhost에서도 지도가 뜬다.
+  const [loading, error] = useKakaoLoader({
+    appkey,
+    url: "https://dapi.kakao.com/v2/maps/sdk.js",
+  });
   const hasCoords = latitude != null && longitude != null;
   const showMap = hasCoords && !!appkey && !error && !loading;
 
